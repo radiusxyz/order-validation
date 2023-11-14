@@ -1,0 +1,22 @@
+{
+  "name": "sequencer",
+  "version": "1.0.0",
+  "description": "",
+  "main": "sequencer.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon sequencer.js"
+  },
+  "author": "gylman",
+  "license": "ISC",
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "crypto": "^1.0.1",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2"
+  }
+}

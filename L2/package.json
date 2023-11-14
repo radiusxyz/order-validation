@@ -1,0 +1,19 @@
+{
+  "name": "rollup",
+  "version": "1.0.0",
+  "description": "",
+  "main": "rollup.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon rollup.js"
+  },
+  "author": "gylman",
+  "license": "ISC",
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

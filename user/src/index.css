@@ -1,0 +1,17 @@
+:root {
+  font-family: Gluten, Roboto, Inter, system-ui, Avenir, Helvetica, Arial,
+    sans-serif;
+  box-sizing: border-box;
+  background-color: #373f68;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body,
+html {
+  width: 100%;
+}
