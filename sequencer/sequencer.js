@@ -2,6 +2,7 @@ import express from 'express';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import axios from 'axios';
 const app = express();
 const PORT = process.env.PORT || 3333;
 
@@ -45,7 +46,14 @@ function consumeTx(req, res) {
 
 app.post('/order', consumeTx);
 
-app.post('/block', (req, res) => {
+app.get('/block', async (req, res) => {
+  console.log('L2 requesting block');
+  try {
+    await axios.post('http://localhost:4444/l2Signature', encTxHashes);
+  } catch (error) {
+    console.error('Error requesting signature from L2:', error);
+  }
+
   res.status(200).json({ message: 'Hello', world: 'Bye' });
 });
 
