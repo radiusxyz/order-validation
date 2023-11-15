@@ -34,8 +34,12 @@ function hashSHA256(str) {
 
 setTimeout(async () => {
   try {
-    const encTxHashes = await axios.get('http://localhost:3333/block');
-    console.log('The sequencer asks L2 to sign the encTxHashes: ', encTxHashes);
+    console.log('L2 will request block ');
+    const encTxBlock = await axios.get('http://localhost:3333/block');
+    console.log(
+      'This is the tx_block built by the sequencer: ',
+      encTxBlock.data.data
+    );
   } catch (error) {
     console.log(error);
   }
@@ -46,7 +50,7 @@ app.post('/l2Signature', (req, res) => {
   console.log('encTxHashes received by L2: ', encTxHashes);
   res.status(200).json({
     status: 'success',
-    data: { encTxHash: 'order of your tx', order: 1, r, v, s },
+    data: { l2Signature: 'This is the signature from L2' },
   });
 });
 

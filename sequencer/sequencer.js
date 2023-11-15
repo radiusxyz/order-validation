@@ -49,12 +49,14 @@ app.post('/order', consumeTx);
 app.get('/block', async (req, res) => {
   console.log('L2 requesting block');
   try {
-    await axios.post('http://localhost:4444/l2Signature', encTxHashes);
+    const signedETHs = await axios.post(
+      'http://localhost:4444/l2Signature',
+      encTxHashes
+    );
   } catch (error) {
     console.error('Error requesting signature from L2:', error);
   }
-
-  res.status(200).json({ message: 'Hello', world: 'Bye' });
+  res.status(200).json({ status: 'success', data: 'Bye World' });
 });
 
 app.listen(PORT, () => {
