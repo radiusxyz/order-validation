@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { styled } from 'styled-components';
 import axios from 'axios';
 import Action from './Action';
-import crypto from 'crypto';
+import { stringify } from '../../../commons/utils.js';
 const sequencerPublicKey = import.meta.env.VITE_SEQUENCER_PUBLIC_KEY;
 
 const Main = styled.div`
@@ -43,6 +43,23 @@ const mockTx = {
 };
 
 function solveTLP() {}
+
+async function hashSHA256(data) {
+  // Encode the string into an ArrayBuffer
+  const encoder = new TextEncoder();
+  const encodedData = encoder.encode(data);
+
+  // Hash the data using SHA-256
+  const hashBuffer = await crypto.subtle.digest('SHA-256', encodedData);
+
+  // Convert the ArrayBuffer to a hex string
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+
+  return hashHex;
+}
 
 async function verifySignature(data, signature, publicKeyPem) {
   // Convert the PEM-encoded public key to a CryptoKey object
@@ -101,17 +118,18 @@ const ActionMenu = () => {
     // Make the function async
     setIsSendEncTxRunning((prevState) => !prevState && true);
     const encTx = encryptTx(tx);
-    console.log(encTx);
 
     try {
       const response = await axios.post('http://localhost:3333/order', encTx);
-      console.log(response);
+      const encTxHash = await hashSHA256(stringify(encTx));
+
+      console.log(encTxHash);
       const isValid = await verifySignature(
-        response.data.data.encTxHash,
+        encTxHash,
         response.data.data.signature,
         sequencerPublicKey
       );
-      console.log('Is signature valid?', isValid);
+      console.log("Is sequencer's signature valid?", isValid);
     } catch (error) {
       console.log(error);
     }

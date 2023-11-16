@@ -1,12 +1,14 @@
 import express from 'express';
 import axios from 'axios';
-import crypto from 'crypto';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { hashSHA256, signData, stringify } from '../commons/utils.js';
 const app = express();
 const PORT = process.env.PORT || 4444;
 app.use(cors());
 app.use(express.json());
+dotenv.config();
+
 dotenv.config();
 
 const [privateKey, publicKey] = [
@@ -14,30 +16,12 @@ const [privateKey, publicKey] = [
   process.env.PUBLIC_KEY,
 ];
 
-dotenv.config();
-
-// const [privateKey, publicKey] = [
-//   process.env.PRIVATE_KEY,
-//   process.env.PUBLIC_KEY,
-// ];
-
-function signData(data, privateKey) {
-  const sign = crypto.createSign('SHA256');
-  sign.update(data);
-  sign.end();
-  return sign.sign(privateKey, 'base64');
-}
-
-function hashSHA256(str) {
-  return crypto.createHash('sha256').update(str).digest('hex');
-}
-
 setTimeout(async () => {
   try {
-    console.log('L2 will request block ');
+    console.log(' Requesting block from the qequencer ');
     const encTxBlock = await axios.get('http://localhost:3333/block');
     console.log(
-      'This is the tx_block built by the sequencer: ',
+      'This is the tx block built by the sequencer: ',
       encTxBlock.data.data
     );
   } catch (error) {
@@ -46,11 +30,14 @@ setTimeout(async () => {
 }, 5000);
 
 app.post('/l2Signature', (req, res) => {
-  const encTxHashes = JSON.stringify(req.body);
-  console.log('encTxHashes received by L2: ', encTxHashes);
+  const encTxHashes = stringify(req.body);
+  console.log('L2 received encTxHashes to be signed: ', encTxHashes);
+  const encTxHashesHash = hashSHA256(encTxHashes);
+  const signature = signData(encTxHashesHash, privateKey);
+
   res.status(200).json({
     status: 'success',
-    data: { l2Signature: 'This is the signature from L2' },
+    data: { l2Signature: signature },
   });
 });
 
