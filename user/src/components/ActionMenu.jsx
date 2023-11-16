@@ -142,8 +142,9 @@ const ActionMenu = () => {
   };
 
   const sendEncTx = async () => {
+    if (isSendEncTxRunning) return;
     // Make the function async
-    setIsSendEncTxRunning((prevState) => !prevState && true);
+    setIsSendEncTxRunning(true);
     const encTx = encryptTx(tx);
     console.log(puzzle);
     try {

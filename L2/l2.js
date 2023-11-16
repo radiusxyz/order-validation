@@ -54,5 +54,5 @@ app.post('/l2Signature', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  logL2('\x1b[31m', 'L2:', '\x1b[0m', 'is running on port: ', PORT);
+  logL2('is running on port: ', PORT);
 });

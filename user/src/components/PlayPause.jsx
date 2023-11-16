@@ -16,8 +16,8 @@ const PlayPause = ({ isPlaying, onClick }) => {
     <IconWrapper onClick={onClick}>
       <svg
         xmlns='http://www.w3.org/2000/svg'
-        fill='none'
         viewBox='0 0 24 24'
+        fill='orange'
         strokeWidth={1.5}
         stroke='currentColor'
         className='w-6 h-6'
@@ -34,7 +34,7 @@ const PlayPause = ({ isPlaying, onClick }) => {
       <svg
         onClick={onClick}
         xmlns='http://www.w3.org/2000/svg'
-        fill='none'
+        fill='green'
         viewBox='0 0 24 24'
         strokeWidth={1.5}
         stroke='currentColor'
