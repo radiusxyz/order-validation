@@ -14,7 +14,7 @@ const PORT = process.env.PORT || 3333;
 app.use(cors());
 app.use(express.json());
 
-const encTxBlock = [];
+let encTxBlock = [];
 const encTxHashes = [];
 
 dotenv.config();
@@ -27,47 +27,78 @@ const [privateKey, _, l2PublicKey] = [
 
 function consumeTx(req, res) {
   const encTx = stringify(req.body);
-  console.log('Sequencer received a transaction: ', encTx);
+  console.log(
+    '\x1b[36m',
+    'SEQUENCER:',
+    '\x1b[0m',
+    ' received an encTx: ',
+    encTx
+  );
   encTxBlock.push(encTx);
   const encTxHash = hashSHA256(encTx);
   encTxHashes.push(encTxHash);
   const order = encTxHashes.length - 1;
   const signature = signData(encTxHash, privateKey);
   res.status(200).json({
-    status: 'success',
-    data: { encTxHash, order, signature },
+    encTxHash,
+    order,
+    signature,
   });
 }
 
 app.post('/order', consumeTx);
 
 app.get('/block', async (req, res) => {
-  let responseData = { status: 'error', data: 'Invalid signature' }; // Default response
-  console.log('L2 requesting block from me');
+  let responseData = {
+    encTxBlock: undefined,
+    encTxBlockHash: undefined,
+    signature: undefined,
+  }; // Default response
+  console.log('\x1b[36m', 'SEQUENCER:', '\x1b[0m', ' L2 is requesting block');
   try {
     const response = await axios.post(
       'http://localhost:4444/l2Signature',
       encTxHashes
     );
-    const l2Signature = response.data.data.l2Signature;
+    const l2Signature = response.data.signature;
     const encTxHashesHash = hashSHA256(stringify(encTxHashes));
     console.log(typeof l2Signature);
     const isValid = verifySignature(encTxHashesHash, l2Signature, l2PublicKey);
-    console.log('Is L2 signature valid?', isValid);
+    console.log(
+      '\x1b[36m',
+      'SEQUENCER:',
+      '\x1b[0m',
+      " is L2's signature valid?",
+      isValid
+    );
     if (isValid) {
-      const encTxBlockHash = hashSHA256(encTxBlock);
+      const encTxBlockHash = hashSHA256(stringify(encTxBlock));
       const signature = signData(encTxBlockHash, privateKey);
+      const temp = [...encTxBlock];
+      encTxBlock = [];
       responseData = {
-        status: 'success',
-        data: { encTxBlock, encTxBlockHash, signature },
+        encTxBlock: temp,
+        signature,
       };
     }
   } catch (error) {
-    console.error('Error requesting signature from L2:', error);
+    console.error(
+      '\x1b[36m',
+      'SEQUENCER:',
+      '\x1b[0m',
+      " error requesting L2's signature:",
+      error
+    );
   }
   res.status(200).json(responseData);
 });
 
 app.listen(PORT, () => {
-  console.log('Sequencer is running on port: ', PORT);
+  console.log(
+    '\x1b[36m',
+    'SEQUENCER:',
+    '\x1b[0m',
+    ' is running on port: ',
+    PORT
+  );
 });

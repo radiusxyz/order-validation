@@ -126,7 +126,7 @@ const ActionMenu = () => {
       console.log(encTxHash);
       const isValid = await verifySignature(
         encTxHash,
-        response.data.data.signature,
+        response.data.signature,
         sequencerPublicKey
       );
       console.log("Is sequencer's signature valid?", isValid);

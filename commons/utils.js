@@ -37,4 +37,8 @@ export function generatePrivPub() {
   });
 }
 
+export function logL2(str) {
+  console.log(arguments);
+  console.log('\x1b[31m', 'L2:', '\x1b[0m', str);
+}
 export default () => 'Welcome to utils';
