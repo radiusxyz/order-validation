@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { styled } from 'styled-components';
 import axios from 'axios';
 import Action from './Action';
@@ -42,7 +42,33 @@ const mockTx = {
   s: '0x42842...', // part of the signature
 };
 
-function solveTLP() {}
+// Helper function to convert a string to an ArrayBuffer
+function str2ab(str) {
+  const encoder = new TextEncoder();
+  return encoder.encode(str);
+}
+
+// Helper function to convert ArrayBuffer to hex string
+function bufferToHex(buffer) {
+  return Array.from(new Uint8Array(buffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+// Create a time-lock puzzle
+async function createPuzzle(seed, timeInSeconds) {
+  let key = str2ab(seed);
+  const startTime = Date.now();
+  const endTime = startTime + timeInSeconds * 1000;
+  let iters = 0;
+
+  while (Date.now() < endTime) {
+    key = await crypto.subtle.digest('SHA-256', key);
+    iters++;
+  }
+
+  return { key: bufferToHex(key), iters };
+}
 
 async function hashSHA256(data) {
   // Encode the string into an ArrayBuffer
@@ -109,6 +135,7 @@ function pemToBuffer(pem) {
 const ActionMenu = () => {
   const [tx, setTx] = useState(mockTx);
   const [isSendEncTxRunning, setIsSendEncTxRunning] = useState(false);
+  const [puzzle, setPuzzle] = useState('default');
 
   const encryptTx = (tx) => {
     return tx;
@@ -118,7 +145,7 @@ const ActionMenu = () => {
     // Make the function async
     setIsSendEncTxRunning((prevState) => !prevState && true);
     const encTx = encryptTx(tx);
-
+    console.log(puzzle);
     try {
       const response = await axios.post('http://localhost:3333/order', encTx);
       const encTxHash = await hashSHA256(stringify(encTx));
@@ -139,6 +166,24 @@ const ActionMenu = () => {
       nonce: `0x${parseInt(parseInt(prevTx.nonce) + 1).toString(16)}`,
     }));
   };
+
+  useEffect(() => {
+    // Define an async function inside useEffect
+    const asyncWrapper = async () => {
+      const newSeed = hashSHA256(Math.floor(Math.random() * 1000000));
+      const newPuzzle = await createPuzzle(newSeed, 5);
+      setPuzzle(newPuzzle);
+      setIsSendEncTxRunning(false);
+    };
+
+    // Call the async function
+    asyncWrapper();
+
+    // Optional: If you have cleanup actions, return a cleanup function
+    return () => {
+      // Cleanup code goes here
+    };
+  }, [isSendEncTxRunning]);
 
   return (
     <Main>
