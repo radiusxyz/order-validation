@@ -37,8 +37,11 @@ export function generatePrivPub() {
   });
 }
 
-export function logL2(str) {
-  console.log(arguments);
-  console.log('\x1b[31m', 'L2:', '\x1b[0m', str);
+export function logSeq(...args) {
+  console.log('\x1b[36m', 'SEQUENCER: ', '\x1b[0m', ...args);
+}
+
+export function logL2(...args) {
+  console.log('\x1b[31m', 'L2: ', '\x1b[0m', ...args);
 }
 export default () => 'Welcome to utils';
