@@ -58,16 +58,17 @@ function bufferToHex(buffer) {
 // Create a time-lock puzzle
 async function createPuzzle(seed, timeInSeconds) {
   let key = str2ab(seed);
+  let digest;
   const startTime = Date.now();
   const endTime = startTime + timeInSeconds * 1000;
   let iters = 0;
 
   while (Date.now() < endTime) {
-    key = await crypto.subtle.digest('SHA-256', key);
+    digest = await crypto.subtle.digest('SHA-256', key);
+    key = str2ab(bufferToHex(digest));
     iters++;
   }
-
-  return { key: bufferToHex(key), iters };
+  return { seed, iters };
 }
 
 async function hashSHA256(data) {
@@ -135,20 +136,24 @@ function pemToBuffer(pem) {
 const ActionMenu = () => {
   const [tx, setTx] = useState(mockTx);
   const [isSendEncTxRunning, setIsSendEncTxRunning] = useState(false);
-  const [puzzle, setPuzzle] = useState('default');
+  const [puzzle, setPuzzle] = useState({});
 
   const encryptTx = (tx) => {
     return tx;
   };
 
   const sendEncTx = async () => {
+    // Only send the transaction if the time-lock puzzle is ready
     if (isSendEncTxRunning) return;
     // Make the function async
     setIsSendEncTxRunning(true);
     const encTx = encryptTx(tx);
     console.log(puzzle);
     try {
-      const response = await axios.post('http://localhost:3333/order', encTx);
+      const response = await axios.post('http://localhost:3333/order', {
+        encTx,
+        puzzle,
+      });
       const encTxHash = await hashSHA256(stringify(encTx));
 
       console.log(encTxHash);
@@ -171,7 +176,7 @@ const ActionMenu = () => {
   useEffect(() => {
     // Define an async function inside useEffect
     const asyncWrapper = async () => {
-      const newSeed = hashSHA256(Math.floor(Math.random() * 1000000));
+      const newSeed = await hashSHA256(Math.floor(Math.random() * 1000000));
       const newPuzzle = await createPuzzle(newSeed, 5);
       setPuzzle(newPuzzle);
       setIsSendEncTxRunning(false);

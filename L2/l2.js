@@ -22,25 +22,25 @@ const [privateKey, sequencerPublicKey] = [
   process.env.SEQUENCER_PUBLIC_KEY,
 ];
 
-setInterval(async () => {
-  try {
-    logL2('requesting block from the sequencer ');
-    const response = await axios.get('http://localhost:3333/block');
-    const sequencerSignature = response.data.signature;
-    const encTxBlock = response.data.encTxBlock;
-    logL2('encTxBlock built by the sequencer: ', encTxBlock);
-    const encTxBlockHash = hashSHA256(stringify(encTxBlock));
-    const isValid = verifySignature(
-      encTxBlockHash,
-      sequencerSignature,
-      sequencerPublicKey
-    );
+// setInterval(async () => {
+//   try {
+//     logL2('requesting block from the sequencer ');
+//     const response = await axios.get('http://localhost:3333/block');
+//     const sequencerSignature = response.data.signature;
+//     const encTxBlock = response.data.encTxBlock;
+//     logL2('encTxBlock built by the sequencer: ', encTxBlock);
+//     const encTxBlockHash = hashSHA256(stringify(encTxBlock));
+//     const isValid = verifySignature(
+//       encTxBlockHash,
+//       sequencerSignature,
+//       sequencerPublicKey
+//     );
 
-    logL2("is sequencer's signature valid?", isValid);
-  } catch (error) {
-    logL2("error requesting sequencer's signature:", error);
-  }
-}, 5000);
+//     logL2("is sequencer's signature valid?", isValid);
+//   } catch (error) {
+//     logL2("error requesting sequencer's signature:", error);
+//   }
+// }, 5000);
 
 app.post('/l2Signature', (req, res) => {
   const encTxHashes = stringify(req.body);

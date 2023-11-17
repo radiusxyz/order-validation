@@ -2,6 +2,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import axios from 'axios';
+import crypto from 'crypto';
 const app = express();
 import {
   hashSHA256,
@@ -26,11 +27,23 @@ const [privateKey, _, l2PublicKey] = [
   process.env.L2_PUBLIC_KEY,
 ];
 
+function solvePuzzle(seed, iters) {
+  let key = seed;
+  for (let i = 0; i < iters; i++) {
+    key = crypto.createHash('sha256').update(key).digest('hex');
+  }
+  return key;
+}
+
 function consumeTx(req, res) {
-  const encTx = stringify(req.body);
-  logSeq('received an encTx: ', encTx);
-  encTxBlock.push(encTx);
-  const encTxHash = hashSHA256(encTx);
+  const { encTx, puzzle } = req.body;
+  logSeq('this is the puzzle received', puzzle);
+  const decryptionKey = solvePuzzle(puzzle.seed, puzzle.iters);
+  logSeq('this is the decryption key', decryptionKey);
+  const encTxStr = stringify(encTx);
+  logSeq('received an encTx: ', encTxStr);
+  encTxBlock.push(encTxStr);
+  const encTxHash = hashSHA256(encTxStr);
   encTxHashes.push(encTxHash);
   const order = encTxHashes.length - 1;
   const signature = signData(encTxHash, privateKey);
