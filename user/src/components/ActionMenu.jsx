@@ -195,6 +195,12 @@ const ActionMenu = () => {
     <Main>
       <Actions>
         <Title>User</Title>
+        <Action handleAction={() => {}} isRunning={isSendEncTxRunning}>
+          Create time-lock puzzle
+        </Action>
+        <Action handleAction={() => {}} isRunning={isSendEncTxRunning}>
+          Encrypt tx
+        </Action>
         <Action handleAction={sendEncTx} isRunning={isSendEncTxRunning}>
           Send tx
         </Action>
@@ -206,7 +212,7 @@ const ActionMenu = () => {
         <Action isRunning={false}>Sign</Action>
         <Action isRunning={false}>Send to user</Action>
         <Action isRunning={false}>Send hashes to L2</Action>
-        <Action isRunning={false}>Send tx list to L2</Action>
+        <Action isRunning={false}>Send encTx list with keys to L2</Action>
         <Action isRunning={false}>Store hashes to L1</Action>
       </Actions>
       <Actions>
