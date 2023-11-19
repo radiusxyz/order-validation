@@ -18,6 +18,7 @@ app.use(express.json());
 
 let encTxBlock = [];
 let encTxHashes = [];
+let txBlock = [];
 
 dotenv.config();
 
@@ -27,6 +28,14 @@ const [privateKey, _, l2PublicKey] = [
   process.env.L2_PUBLIC_KEY,
 ];
 
+function hexToBuffer(hexString) {
+  const byteArray = new Uint8Array(hexString.length / 2);
+  for (let i = 0; i < hexString.length; i += 2) {
+    byteArray[i / 2] = parseInt(hexString.substring(i, i + 2), 16);
+  }
+  return byteArray.buffer;
+}
+
 function solvePuzzle(seed, iters) {
   let key = seed;
   for (let i = 0; i < iters; i++) {
@@ -35,23 +44,53 @@ function solvePuzzle(seed, iters) {
   return key;
 }
 
-function consumeTx(req, res) {
-  const { encTx, puzzle } = req.body;
-  logSeq('this is the puzzle received', puzzle);
-  const decryptionKey = solvePuzzle(puzzle.seed, puzzle.iters);
-  logSeq('this is the decryption key', decryptionKey);
-  const encTxStr = stringify(encTx);
-  logSeq('received an encTx: ', encTxStr);
-  encTxBlock.push(encTxStr);
-  const encTxHash = hashSHA256(encTxStr);
-  encTxHashes.push(encTxHash);
+async function decryptText(encryptedWithTag, iv, keyBuffer) {
+  if (encryptedWithTag instanceof ArrayBuffer) {
+    encryptedWithTag = Buffer.from(encryptedWithTag);
+  }
+  // Assuming the tag is the last 16 bytes of the encrypted data
+  const tagLength = 16;
+  const encrypted = encryptedWithTag.slice(0, -tagLength);
+  const tag = encryptedWithTag.slice(-tagLength);
+
+  // Create a decipher instance
+  const decipher = crypto.createDecipheriv('aes-256-gcm', keyBuffer, iv);
+  decipher.setAuthTag(tag);
+
+  // Decrypt the data
+  let decrypted = decipher.update(encrypted);
+  decrypted = Buffer.concat([decrypted, decipher.final()]);
+
+  return decrypted.toString('utf-8'); // Assuming UTF-8 encoded data
+}
+
+async function consumeTx(req, res) {
+  // Destructure the request body
+  const { encTxHexStr, iv, unsolved } = req.body;
+  logSeq('the received encTxHexStr:', encTxHexStr);
+  logSeq('the received puzzle:', unsolved);
+  // Hash the encrypted transaction as hex string, since we are planning to store only encrypted txs in the L1
+  const encTxHexStrHash = hashSHA256(encTxHexStr);
+  // Push the hash of the encrypted transaction as hex string to block
+  encTxHashes.push(encTxHexStrHash);
+  // Since the method is FCFS, and we order starting from 0, the order is length of the block - 1
   const order = encTxHashes.length - 1;
-  const signature = signData(encTxHash, privateKey);
+  // Sign the hash of the encrypted transaction as hex string
+  const signature = signData(encTxHexStrHash, privateKey);
+  // Respond to the user
   res.status(200).json({
-    encTxHash,
+    encTxHexStrHash,
     order,
     signature,
   });
+  // Solve the time-lock puzzle
+  const decryptionKey = solvePuzzle(unsolved.seed, unsolved.iters);
+  logSeq('the decryption key:', decryptionKey);
+  // Stringify iv
+  const ivStr = stringify(iv);
+  console.log('the received iv (stringified):', ivStr);
+  // Push the encrypted transaction as hex string, iv as string, and decryption key as hex string into the block of encrypted txs
+  encTxBlock.push({ encTxHexStr, ivStr, decryptionKey });
 }
 
 app.post('/order', consumeTx);

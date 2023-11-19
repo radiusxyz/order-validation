@@ -68,7 +68,7 @@ async function createPuzzle(seed, timeInSeconds) {
     key = str2ab(bufferToHex(digest));
     iters++;
   }
-  return { seed, iters };
+  return { seed, iters, solution: bufferToHex(digest) };
 }
 
 async function hashSHA256(data) {
@@ -86,6 +86,53 @@ async function hashSHA256(data) {
     .join('');
 
   return hashHex;
+}
+
+async function importKeyFromHash(hash) {
+  // Convert hex string to a byte array
+  hash = hash.match(/.{1,2}/g).map((byte) => parseInt(byte, 16));
+
+  // Import the raw key into Web Crypto API
+  return await window.crypto.subtle.importKey(
+    'raw', // raw format
+    new Uint8Array(hash), // the hash converted to Uint8Array
+    { name: 'AES-GCM' }, // algorithm
+    false, // not extractable
+    ['encrypt', 'decrypt'] // can be used for these operations
+  );
+}
+
+async function encryptText(plainText, key) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(plainText);
+
+  // AES-GCM needs an initialization vector (iv)
+  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+
+  const encrypted = await window.crypto.subtle.encrypt(
+    {
+      name: 'AES-GCM',
+      iv: iv,
+    },
+    key,
+    data
+  );
+
+  return { encTx: encrypted, iv };
+}
+
+async function decryptText(encrypted, iv, key) {
+  const decrypted = await window.crypto.subtle.decrypt(
+    {
+      name: 'AES-GCM',
+      iv: iv,
+    },
+    key,
+    encrypted
+  );
+
+  const decoder = new TextDecoder();
+  return decoder.decode(decrypted);
 }
 
 async function verifySignature(data, signature, publicKeyPem) {
@@ -147,18 +194,29 @@ const ActionMenu = () => {
     if (isSendEncTxRunning) return;
     // Make the function async
     setIsSendEncTxRunning(true);
-    const encTx = encryptTx(tx);
-    console.log(puzzle);
-    try {
-      const response = await axios.post('http://localhost:3333/order', {
-        encTx,
-        puzzle,
-      });
-      const encTxHash = await hashSHA256(stringify(encTx));
+    // Import key from the hex string, the solution of the time-lock puzzle
+    const key = await importKeyFromHash(puzzle.solution);
+    // Encrypt the transaction and destructure into encTx and iv
+    const { encTx, iv } = await encryptText(stringify(tx), key);
+    // encTx is in buffer format, which cannot be sent easily via POST, so, convert it to hex
+    const encTxHexStr = bufferToHex(encTx);
+    // this piece of code is just for showing that encryption decryption works fine on the browser
+    const decryptedText = await decryptText(encTx, iv, key);
 
-      console.log(encTxHash);
+    try {
+      // The time-lock puzzle without the solution
+      const unsolved = { seed: puzzle.seed, iters: puzzle.iters };
+      // Send a post request with encrypted transaction in hex string format, iv, and time-lock puzzle
+      const response = await axios.post('http://localhost:3333/order', {
+        encTxHexStr,
+        iv,
+        unsolved,
+      });
+      // Hash the encrypted transaction in hex string format for verifying the signature of the sequencer
+      const encTxHexStrHash = await hashSHA256(encTxHexStr);
+      // Verify the sequencer's signature
       const isValid = await verifySignature(
-        encTxHash,
+        encTxHexStrHash,
         response.data.signature,
         sequencerPublicKey
       );
@@ -177,7 +235,7 @@ const ActionMenu = () => {
     // Define an async function inside useEffect
     const asyncWrapper = async () => {
       const newSeed = await hashSHA256(Math.floor(Math.random() * 1000000));
-      const newPuzzle = await createPuzzle(newSeed, 5);
+      const newPuzzle = await createPuzzle(newSeed, 1);
       setPuzzle(newPuzzle);
       setIsSendEncTxRunning(false);
     };
