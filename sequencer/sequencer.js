@@ -3,6 +3,8 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import axios from 'axios';
 import crypto from 'crypto';
+import { ethers, JsonRpcProvider } from 'ethers';
+
 const app = express();
 import {
   hashSHA256,
@@ -22,10 +24,11 @@ let txBlock = [];
 
 dotenv.config();
 
-const [privateKey, _, l2PublicKey] = [
+const [privateKey, _, l2PublicKey, gylmanPK] = [
   process.env.PRIVATE_KEY,
   process.env.PUBLIC_KEY,
   process.env.L2_PUBLIC_KEY,
+  process.env.GYLMAN_PRIVATE_KEY,
 ];
 
 function hexToBuffer(hexString) {
@@ -126,6 +129,126 @@ app.get('/block', async (req, res) => {
   }
   res.status(200).json(responseData);
 });
+
+// If you don't specify a //url//, Ethers connects to the default
+// (i.e. ``http:/\/localhost:8545``)
+const provider = new JsonRpcProvider(
+  'https://rpc-mumbai.maticvigil.com/v1/16494e45ab01479808b11686dc5d01b06a938e0f'
+);
+
+const wallet = new ethers.Wallet(gylmanPK, provider);
+
+const contractAddress = '0xD8a6B2e81Cba914780e8E66dF2D4Fa189CD2974E';
+const contractABI = [
+  {
+    inputs: [
+      {
+        internalType: 'uint256',
+        name: '_unlockTime',
+        type: 'uint256',
+      },
+    ],
+    stateMutability: 'payable',
+    type: 'constructor',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'amount',
+        type: 'uint256',
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'when',
+        type: 'uint256',
+      },
+    ],
+    name: 'Withdrawal',
+    type: 'event',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'bytes32[]',
+        name: '_txHashes',
+        type: 'bytes32[]',
+      },
+    ],
+    name: 'addTxHashes',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'owner',
+    outputs: [
+      {
+        internalType: 'address payable',
+        name: '',
+        type: 'address',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'uint256',
+        name: '',
+        type: 'uint256',
+      },
+    ],
+    name: 'roundTxHashes',
+    outputs: [
+      {
+        internalType: 'bytes32',
+        name: '',
+        type: 'bytes32',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'unlockTime',
+    outputs: [
+      {
+        internalType: 'uint256',
+        name: '',
+        type: 'uint256',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'withdraw',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+];
+
+const contract = new ethers.Contract(contractAddress, contractABI, wallet);
+
+async function writeData() {
+  const tx = await contract.addTxHashes([
+    '0x0cb03f9858f3428eaab177067831cf8ff94a80947ac78e6f9d65a8cf73ff145f',
+    '0x0cb03f9858f3428eaab177067831cf8ff94a80947ac78e6f9d65a8cf73ff145f',
+  ]);
+  await tx.wait();
+  console.log('Transaction completed:', tx.hash);
+}
+
+writeData();
 
 app.listen(PORT, () => {
   logSeq('is running on port: ', PORT);
