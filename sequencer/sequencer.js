@@ -7,12 +7,12 @@ import { ethers, JsonRpcProvider } from 'ethers';
 
 const app = express();
 import {
-  hashSHA256,
+  hashKeccak256,
   logL1,
   logSeq,
-  signDataRSA,
+  signDataECDSA,
   stringify,
-  verifySignatureRSA,
+  verifySignatureECDSA,
 } from '../commons/utils.js';
 const PORT = process.env.PORT || 3333;
 
@@ -25,15 +25,13 @@ let txBlock = [];
 
 dotenv.config({ path: '../.env' });
 
-const [privateKeyRSA, _, l2PublicKeyRSA, gylmanPK, apiKey] = [
-  process.env.SEQUENCER_PRIVATE_KEY_RSA,
-  process.env.SEQUENCER_PUBLIC_KEY_RSA,
-  process.env.L2_PUBLIC_KEY_RSA,
+const [privateKeyECDSA, _, l2PublicKeyECDSA, gylmanPK, apiKey] = [
+  process.env.SEQUENCER_PRIVATE_KEY_ECDSA,
+  process.env.SEQUENCER_PUBLIC_KEY_ECDSA,
+  process.env.L2_PUBLIC_KEY_ECDSA,
   process.env.GYLMAN_PRIVATE_KEY,
   process.env.INFURA_API_KEY,
 ];
-
-console.log(privateKeyRSA, l2PublicKeyRSA);
 
 const provider = new JsonRpcProvider(
   `https://rpc-mumbai.maticvigil.com/v1/${apiKey}`
@@ -190,13 +188,13 @@ async function consumeTx(req, res) {
   logSeq('the received encTxHexStr:', encTxHexStr);
   logSeq('the received puzzle:', unsolved);
   // Hash the encrypted transaction as hex string, since we are planning to store only encrypted txs in the L1
-  const encTxHexStrHash = hashSHA256(encTxHexStr);
+  const encTxHexStrHash = hashKeccak256(encTxHexStr);
   // Push the hash of the encrypted transaction as hex string to block
   encTxHashes.push(encTxHexStrHash);
   // Since the method is FCFS, and we order starting from 0, the order is length of the block - 1
   const order = encTxHashes.length - 1;
   // Sign the hash of the encrypted transaction as hex string
-  const signature = signDataRSA(encTxHexStrHash, privateKeyRSA);
+  const signature = signDataECDSA(encTxHexStrHash, privateKeyECDSA);
   // Respond to the user
   res.status(200).json({
     encTxHexStrHash,
@@ -208,7 +206,6 @@ async function consumeTx(req, res) {
   logSeq('the decryption key:', decryptionKey);
   // Stringify iv
   const ivStr = stringify(iv);
-  console.log('the received iv (stringified):', ivStr);
   // Push the encrypted transaction as hex string, iv as string, and decryption key as hex string into the block of encrypted txs
   encTxBlock.push({ encTxHexStr, ivStr, decryptionKey });
 }
@@ -231,12 +228,12 @@ app.get('/block', async (req, res) => {
     );
     const l2Signature = response.data.signature;
     // Stringify the encrypted tx hash list and hash it for signature verification
-    const encTxHashesHash = hashSHA256(stringify(encTxHashes));
+    const encTxHashesHash = hashKeccak256(stringify(encTxHashes));
     // Verify the signature
-    const isValid = verifySignatureRSA(
+    const isValid = verifySignatureECDSA(
       encTxHashesHash,
       l2Signature,
-      l2PublicKeyRSA
+      l2PublicKeyECDSA
     );
     logSeq("is L2's signature valid?", isValid);
     if (isValid) {
@@ -245,8 +242,8 @@ app.get('/block', async (req, res) => {
       // If the signature is valid, store the hash list in L1
       submitToL1(encTxHashes);
       // Sign the hash of the encrypted transaction block
-      const encTxBlockHash = hashSHA256(stringify(encTxBlock));
-      const signature = signDataRSA(encTxBlockHash, privateKeyRSA);
+      const encTxBlockHash = hashKeccak256(stringify(encTxBlock));
+      const signature = signDataECDSA(encTxBlockHash, privateKeyECDSA);
       responseData = {
         encTxBlock: [...encTxBlock],
         signature,

@@ -3,11 +3,11 @@ import axios from 'axios';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import {
-  hashSHA256,
+  hashKeccak256,
   logL2,
-  signDataRSA,
+  signDataECDSA,
   stringify,
-  verifySignatureRSA,
+  verifySignatureECDSA,
 } from '../commons/utils.js';
 const app = express();
 const PORT = process.env.PORT || 4444;
@@ -17,9 +17,9 @@ dotenv.config();
 
 dotenv.config({ path: '../.env' });
 
-const [privateKeyRSA, sequencerPublicKeyRSA] = [
-  process.env.L2_PRIVATE_KEY_RSA,
-  process.env.SEQUENCER_PUBLIC_KEY_RSA,
+const [privateKeyECDSA, sequencerPublicKeyECDSA] = [
+  process.env.L2_PRIVATE_KEY_ECDSA,
+  process.env.SEQUENCER_PUBLIC_KEY_ECDSA,
 ];
 
 // Request the block of transactions every 5 seconds
@@ -37,28 +37,28 @@ setInterval(async () => {
     const encTxBlock = response.data.encTxBlock;
     logL2('encTxBlock built by the sequencer: ', encTxBlock);
     // Hash the stringified encrypted tx block for signature verification
-    const encTxBlockHash = hashSHA256(stringify(encTxBlock));
+    const encTxBlockHash = hashKeccak256(stringify(encTxBlock));
     // Verify the signature
-    const isValid = verifySignatureRSA(
+    const isValid = verifySignatureECDSA(
       encTxBlockHash,
       sequencerSignature,
-      sequencerPublicKeyRSA
+      sequencerPublicKeyECDSA
     );
 
     logL2("is sequencer's signature valid?", isValid);
   } catch (error) {
     logL2("error requesting sequencer's signature:", error);
   }
-}, 20000);
+}, 5000);
 
 app.post('/l2Signature', (req, res) => {
   // Convert received object to string, since arguments for hashing functions should of type string
   const encTxHashes = stringify(req.body);
   logL2('received encTxHashes to be signed: ', encTxHashes);
   // Hash the encrypted tx hash list
-  const encTxHashesHash = hashSHA256(encTxHashes);
+  const encTxHashesHash = hashKeccak256(encTxHashes);
   // Sign it with L2's private key
-  const signature = signDataRSA(encTxHashesHash, privateKeyRSA);
+  const signature = signDataECDSA(encTxHashesHash, privateKeyECDSA);
   // Send the signature back to the sequencer
   res.status(200).json({
     signature: signature,
