@@ -44,4 +44,8 @@ export function logSeq(...args) {
 export function logL2(...args) {
   console.log('\x1b[31m', 'L2: ', '\x1b[0m', ...args);
 }
+
+export function logL1(...args) {
+  console.log('\x1b[92m', 'L1: ', '\x1b[0m', ...args);
+}
 export default () => 'Welcome to utils';

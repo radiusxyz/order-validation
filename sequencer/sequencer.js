@@ -8,6 +8,7 @@ import { ethers, JsonRpcProvider } from 'ethers';
 const app = express();
 import {
   hashSHA256,
+  logL1,
   logSeq,
   signData,
   stringify,
@@ -31,107 +32,6 @@ const [privateKey, _, l2PublicKey, gylmanPK] = [
   process.env.GYLMAN_PRIVATE_KEY,
 ];
 
-function hexToBuffer(hexString) {
-  const byteArray = new Uint8Array(hexString.length / 2);
-  for (let i = 0; i < hexString.length; i += 2) {
-    byteArray[i / 2] = parseInt(hexString.substring(i, i + 2), 16);
-  }
-  return byteArray.buffer;
-}
-
-function solvePuzzle(seed, iters) {
-  let key = seed;
-  for (let i = 0; i < iters; i++) {
-    key = crypto.createHash('sha256').update(key).digest('hex');
-  }
-  return key;
-}
-
-async function decryptText(encryptedWithTag, iv, keyBuffer) {
-  if (encryptedWithTag instanceof ArrayBuffer) {
-    encryptedWithTag = Buffer.from(encryptedWithTag);
-  }
-  // Assuming the tag is the last 16 bytes of the encrypted data
-  const tagLength = 16;
-  const encrypted = encryptedWithTag.slice(0, -tagLength);
-  const tag = encryptedWithTag.slice(-tagLength);
-
-  // Create a decipher instance
-  const decipher = crypto.createDecipheriv('aes-256-gcm', keyBuffer, iv);
-  decipher.setAuthTag(tag);
-
-  // Decrypt the data
-  let decrypted = decipher.update(encrypted);
-  decrypted = Buffer.concat([decrypted, decipher.final()]);
-
-  return decrypted.toString('utf-8'); // Assuming UTF-8 encoded data
-}
-
-async function consumeTx(req, res) {
-  // Destructure the request body
-  const { encTxHexStr, iv, unsolved } = req.body;
-  logSeq('the received encTxHexStr:', encTxHexStr);
-  logSeq('the received puzzle:', unsolved);
-  // Hash the encrypted transaction as hex string, since we are planning to store only encrypted txs in the L1
-  const encTxHexStrHash = hashSHA256(encTxHexStr);
-  // Push the hash of the encrypted transaction as hex string to block
-  encTxHashes.push(encTxHexStrHash);
-  // Since the method is FCFS, and we order starting from 0, the order is length of the block - 1
-  const order = encTxHashes.length - 1;
-  // Sign the hash of the encrypted transaction as hex string
-  const signature = signData(encTxHexStrHash, privateKey);
-  // Respond to the user
-  res.status(200).json({
-    encTxHexStrHash,
-    order,
-    signature,
-  });
-  // Solve the time-lock puzzle
-  const decryptionKey = solvePuzzle(unsolved.seed, unsolved.iters);
-  logSeq('the decryption key:', decryptionKey);
-  // Stringify iv
-  const ivStr = stringify(iv);
-  console.log('the received iv (stringified):', ivStr);
-  // Push the encrypted transaction as hex string, iv as string, and decryption key as hex string into the block of encrypted txs
-  encTxBlock.push({ encTxHexStr, ivStr, decryptionKey });
-}
-
-app.post('/order', consumeTx);
-
-app.get('/block', async (req, res) => {
-  let responseData = {
-    encTxBlock: undefined,
-    encTxBlockHash: undefined,
-    signature: undefined,
-  }; // Default response
-  logSeq('L2 is requesting block');
-  try {
-    const response = await axios.post(
-      'http://localhost:4444/l2Signature',
-      encTxHashes
-    );
-    const l2Signature = response.data.signature;
-    const encTxHashesHash = hashSHA256(stringify(encTxHashes));
-    const isValid = verifySignature(encTxHashesHash, l2Signature, l2PublicKey);
-    logSeq("is L2's signature valid?", isValid);
-    if (isValid) {
-      const encTxBlockHash = hashSHA256(stringify(encTxBlock));
-      const signature = signData(encTxBlockHash, privateKey);
-      responseData = {
-        encTxBlock: [...encTxBlock],
-        signature,
-      };
-      encTxBlock = [];
-      encTxHashes = [];
-    }
-  } catch (error) {
-    console.error("error requesting L2's signature:", error);
-  }
-  res.status(200).json(responseData);
-});
-
-// If you don't specify a //url//, Ethers connects to the default
-// (i.e. ``http:/\/localhost:8545``)
 const provider = new JsonRpcProvider(
   'https://rpc-mumbai.maticvigil.com/v1/16494e45ab01479808b11686dc5d01b06a938e0f'
 );
@@ -239,16 +139,121 @@ const contractABI = [
 
 const contract = new ethers.Contract(contractAddress, contractABI, wallet);
 
-async function writeData() {
+async function submitToL1() {
   const tx = await contract.addTxHashes([
     '0x0cb03f9858f3428eaab177067831cf8ff94a80947ac78e6f9d65a8cf73ff145f',
     '0x0cb03f9858f3428eaab177067831cf8ff94a80947ac78e6f9d65a8cf73ff145f',
   ]);
   await tx.wait();
-  console.log('Transaction completed:', tx.hash);
+  logL1('transaction completed:', tx.hash);
 }
 
-writeData();
+function hexToBuffer(hexString) {
+  const byteArray = new Uint8Array(hexString.length / 2);
+  for (let i = 0; i < hexString.length; i += 2) {
+    byteArray[i / 2] = parseInt(hexString.substring(i, i + 2), 16);
+  }
+  return byteArray.buffer;
+}
+
+function solvePuzzle(seed, iters) {
+  let key = seed;
+  for (let i = 0; i < iters; i++) {
+    key = crypto.createHash('sha256').update(key).digest('hex');
+  }
+  return key;
+}
+
+async function decryptText(encryptedWithTag, iv, keyBuffer) {
+  if (encryptedWithTag instanceof ArrayBuffer) {
+    encryptedWithTag = Buffer.from(encryptedWithTag);
+  }
+  // Assuming the tag is the last 16 bytes of the encrypted data
+  const tagLength = 16;
+  const encrypted = encryptedWithTag.slice(0, -tagLength);
+  const tag = encryptedWithTag.slice(-tagLength);
+
+  // Create a decipher instance
+  const decipher = crypto.createDecipheriv('aes-256-gcm', keyBuffer, iv);
+  decipher.setAuthTag(tag);
+
+  // Decrypt the data
+  let decrypted = decipher.update(encrypted);
+  decrypted = Buffer.concat([decrypted, decipher.final()]);
+
+  return decrypted.toString('utf-8'); // Assuming UTF-8 encoded data
+}
+
+async function consumeTx(req, res) {
+  // Destructure the request body
+  const { encTxHexStr, iv, unsolved } = req.body;
+  logSeq('the received encTxHexStr:', encTxHexStr);
+  logSeq('the received puzzle:', unsolved);
+  // Hash the encrypted transaction as hex string, since we are planning to store only encrypted txs in the L1
+  const encTxHexStrHash = hashSHA256(encTxHexStr);
+  // Push the hash of the encrypted transaction as hex string to block
+  encTxHashes.push(encTxHexStrHash);
+  // Since the method is FCFS, and we order starting from 0, the order is length of the block - 1
+  const order = encTxHashes.length - 1;
+  // Sign the hash of the encrypted transaction as hex string
+  const signature = signData(encTxHexStrHash, privateKey);
+  // Respond to the user
+  res.status(200).json({
+    encTxHexStrHash,
+    order,
+    signature,
+  });
+  // Solve the time-lock puzzle
+  const decryptionKey = solvePuzzle(unsolved.seed, unsolved.iters);
+  logSeq('the decryption key:', decryptionKey);
+  // Stringify iv
+  const ivStr = stringify(iv);
+  console.log('the received iv (stringified):', ivStr);
+  // Push the encrypted transaction as hex string, iv as string, and decryption key as hex string into the block of encrypted txs
+  encTxBlock.push({ encTxHexStr, ivStr, decryptionKey });
+}
+
+app.post('/order', consumeTx);
+
+app.get('/block', async (req, res) => {
+  // Default response
+  let responseData = {
+    encTxBlock: undefined,
+    encTxBlockHash: undefined,
+    signature: undefined,
+  };
+  logSeq('L2 is requesting block');
+  // Send post request with encrypted tx hashes to get the signature of the L2
+  try {
+    const response = await axios.post(
+      'http://localhost:4444/l2Signature',
+      encTxHashes
+    );
+    const l2Signature = response.data.signature;
+    // Stringify the encrypted tx hash list and hash it for signature verification
+    const encTxHashesHash = hashSHA256(stringify(encTxHashes));
+    // Verify the signature
+    const isValid = verifySignature(encTxHashesHash, l2Signature, l2PublicKey);
+    logSeq("is L2's signature valid?", isValid);
+    if (isValid) {
+      // If the signature is valid, store the hash list in L1
+      submitToL1();
+      // Sign the hash of the encrypted transaction block
+      const encTxBlockHash = hashSHA256(stringify(encTxBlock));
+      const signature = signData(encTxBlockHash, privateKey);
+      responseData = {
+        encTxBlock: [...encTxBlock],
+        signature,
+      };
+      encTxBlock = [];
+      encTxHashes = [];
+    }
+  } catch (error) {
+    console.error("error requesting L2's signature:", error);
+  }
+  // Respond to L2 with the encrypted transaction block, and signature
+  res.status(200).json(responseData);
+});
 
 app.listen(PORT, () => {
   logSeq('is running on port: ', PORT);
