@@ -3,7 +3,7 @@ import { styled } from 'styled-components';
 import axios from 'axios';
 import Action from './Action';
 import { stringify } from '../../../commons/utils.js';
-const sequencerPublicKey = import.meta.env.VITE_SEQUENCER_PUBLIC_KEY;
+const sequencerPublicKeyRSA = import.meta.env.VITE_SEQUENCER_PUBLIC_KEY_RSA;
 
 const Main = styled.div`
   background: #f2f2f2;
@@ -218,7 +218,7 @@ const ActionMenu = () => {
       const isValid = await verifySignature(
         encTxHexStrHash,
         response.data.signature,
-        sequencerPublicKey
+        sequencerPublicKeyRSA
       );
       console.log("Is sequencer's signature valid?", isValid);
     } catch (error) {

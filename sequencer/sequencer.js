@@ -25,10 +25,10 @@ let txBlock = [];
 
 dotenv.config();
 
-const [privateKey, _, l2PublicKey, gylmanPK, apiKey] = [
-  process.env.PRIVATE_KEY,
-  process.env.PUBLIC_KEY,
-  process.env.L2_PUBLIC_KEY,
+const [privateKeyRSA, _, l2PublicKeyRSA, gylmanPK, apiKey] = [
+  process.env.PRIVATE_KEY_RSA,
+  process.env.PUBLIC_KEY_RSA,
+  process.env.L2_PUBLIC_KEY_RSA,
   process.env.GYLMAN_PRIVATE_KEY,
   process.env.INFURA_API_KEY,
 ];
@@ -194,7 +194,7 @@ async function consumeTx(req, res) {
   // Since the method is FCFS, and we order starting from 0, the order is length of the block - 1
   const order = encTxHashes.length - 1;
   // Sign the hash of the encrypted transaction as hex string
-  const signature = signDataRSA(encTxHexStrHash, privateKey);
+  const signature = signDataRSA(encTxHexStrHash, privateKeyRSA);
   // Respond to the user
   res.status(200).json({
     encTxHexStrHash,
@@ -234,7 +234,7 @@ app.get('/block', async (req, res) => {
     const isValid = verifySignatureRSA(
       encTxHashesHash,
       l2Signature,
-      l2PublicKey
+      l2PublicKeyRSA
     );
     logSeq("is L2's signature valid?", isValid);
     if (isValid) {
@@ -244,7 +244,7 @@ app.get('/block', async (req, res) => {
       submitToL1(encTxHashes);
       // Sign the hash of the encrypted transaction block
       const encTxBlockHash = hashSHA256(stringify(encTxBlock));
-      const signature = signDataRSA(encTxBlockHash, privateKey);
+      const signature = signDataRSA(encTxBlockHash, privateKeyRSA);
       responseData = {
         encTxBlock: [...encTxBlock],
         signature,

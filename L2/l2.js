@@ -17,9 +17,9 @@ dotenv.config();
 
 dotenv.config();
 
-const [privateKey, sequencerPublicKey] = [
-  process.env.PRIVATE_KEY,
-  process.env.SEQUENCER_PUBLIC_KEY,
+const [privateKeyRSA, sequencerPublicKeyRSA] = [
+  process.env.PRIVATE_KEY_RSA,
+  process.env.SEQUENCER_PUBLIC_KEY_RSA,
 ];
 
 // Request the block of transactions every 5 seconds
@@ -42,7 +42,7 @@ setInterval(async () => {
     const isValid = verifySignatureRSA(
       encTxBlockHash,
       sequencerSignature,
-      sequencerPublicKey
+      sequencerPublicKeyRSA
     );
 
     logL2("is sequencer's signature valid?", isValid);
@@ -58,7 +58,7 @@ app.post('/l2Signature', (req, res) => {
   // Hash the encrypted tx hash list
   const encTxHashesHash = hashSHA256(encTxHashes);
   // Sign it with L2's private key
-  const signature = signDataRSA(encTxHashesHash, privateKey);
+  const signature = signDataRSA(encTxHashesHash, privateKeyRSA);
   // Send the signature back to the sequencer
   res.status(200).json({
     signature: signature,

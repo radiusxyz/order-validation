@@ -1,4 +1,6 @@
 import crypto from 'crypto';
+import pkg from 'js-sha3';
+const { keccak_256 } = pkg;
 
 // Convert any data type to string
 
@@ -14,10 +16,28 @@ export function signDataRSA(data, privateKey) {
   return signature;
 }
 
+// Make an ECDSA signature
+
+export function signDataECDSA(hash, privateKey) {
+  return crypto.sign(null, hash, privateKey);
+}
+
+// Verify an ECDSA signature
+
+export function verifySignatureECDSA(hash, publicKey, signature) {
+  return crypto.verify(null, hash, publicKey, signature);
+}
+
 // Node.js SHA256 hashing using 'crypto' library
 
 export function hashSHA256(str) {
   return crypto.createHash('sha256').update(str).digest('hex');
+}
+
+// Node.js Kecak-256 hashing using 'js-sha3' library
+
+export function hashKeccak256(str) {
+  return Buffer.from(keccak_256.arrayBuffer(str));
 }
 
 // RSA signature verification
@@ -42,6 +62,8 @@ export function generatePrivPubRSA() {
 export function generatePrivPubECDSA() {
   return crypto.generateKeyPairSync('ec', {
     namedCurve: 'secp256k1',
+    publicKeyEncoding: { type: 'spki', format: 'pem' },
+    privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
   });
 }
 
