@@ -15,10 +15,10 @@ app.use(cors());
 app.use(express.json());
 dotenv.config();
 
-dotenv.config();
+dotenv.config({ path: '../.env' });
 
 const [privateKeyRSA, sequencerPublicKeyRSA] = [
-  process.env.PRIVATE_KEY_RSA,
+  process.env.L2_PRIVATE_KEY_RSA,
   process.env.SEQUENCER_PUBLIC_KEY_RSA,
 ];
 

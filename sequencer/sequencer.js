@@ -23,15 +23,17 @@ let encTxBlock = [];
 let encTxHashes = [];
 let txBlock = [];
 
-dotenv.config();
+dotenv.config({ path: '../.env' });
 
 const [privateKeyRSA, _, l2PublicKeyRSA, gylmanPK, apiKey] = [
-  process.env.PRIVATE_KEY_RSA,
-  process.env.PUBLIC_KEY_RSA,
+  process.env.SEQUENCER_PRIVATE_KEY_RSA,
+  process.env.SEQUENCER_PUBLIC_KEY_RSA,
   process.env.L2_PUBLIC_KEY_RSA,
   process.env.GYLMAN_PRIVATE_KEY,
   process.env.INFURA_API_KEY,
 ];
+
+console.log(privateKeyRSA, l2PublicKeyRSA);
 
 const provider = new JsonRpcProvider(
   `https://rpc-mumbai.maticvigil.com/v1/${apiKey}`
