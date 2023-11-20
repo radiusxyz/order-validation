@@ -6,6 +6,37 @@ const { keccak_256 } = pkg;
 
 export const stringify = (data) => JSON.stringify(data);
 
+// Convert ArrayBuffer to hex string (usable for client code)
+
+export function bufferToHex(buffer) {
+  return Array.from(new Uint8Array(buffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+// Convert hex string to buffer
+
+export function hexToBuffer(hexString) {
+  const byteArray = new Uint8Array(hexString.length / 2);
+  for (let i = 0; i < hexString.length; i += 2) {
+    byteArray[i / 2] = parseInt(hexString.substring(i, i + 2), 16);
+  }
+  return byteArray.buffer;
+}
+
+// Convert hex string to buffer (usable for client code)
+
+export function hexToUint8Array(hexString) {
+  if (hexString.length % 2 !== 0) {
+    throw new Error('Invalid hexString');
+  }
+  const arrayBuffer = new Uint8Array(hexString.length / 2);
+  for (let i = 0; i < arrayBuffer.length; i++) {
+    arrayBuffer[i] = parseInt(hexString.substr(i * 2, 2), 16);
+  }
+  return arrayBuffer;
+}
+
 // Make an RSA signature
 
 export function signDataRSA(data, privateKey) {
@@ -37,10 +68,10 @@ export function hashSHA256(str) {
   return crypto.createHash('sha256').update(str).digest('hex');
 }
 
-// Node.js Kecak-256 hashing using 'js-sha3' library
+// Kecak-256 hashing using 'js-sha3' library
 
 export function hashKeccak256(str) {
-  return Buffer.from(keccak_256.arrayBuffer(str)).toString('hex');
+  return keccak_256(str);
 }
 
 // RSA signature verification

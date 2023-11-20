@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { styled } from 'styled-components';
 import axios from 'axios';
+import { ec as EC } from 'elliptic';
 import Action from './Action';
-import { stringify } from '../../../commons/utils.js';
+import pkg from 'js-sha3';
+const { keccak_256 } = pkg;
+const sequencerPublicKeyECDSA = import.meta.env.VITE_SEQUENCER_PUBLIC_KEY_ECDSA;
 const sequencerPublicKeyRSA = import.meta.env.VITE_SEQUENCER_PUBLIC_KEY_RSA;
 
 const Main = styled.div`
@@ -42,20 +45,43 @@ const mockTx = {
   s: '0x42842...', // part of the signature
 };
 
+// Convert any data type to string
+
+export const stringify = (data) => JSON.stringify(data);
+
 // Helper function to convert a string to an ArrayBuffer
+
 function str2ab(str) {
   const encoder = new TextEncoder();
   return encoder.encode(str);
 }
 
-// Helper function to convert ArrayBuffer to hex string
-function bufferToHex(buffer) {
+// Kecak-256 hashing using 'js-sha3' library
+
+export function hashKeccak256(str) {
+  return keccak_256(str);
+}
+
+// Convert ArrayBuffer to hex string (usable for client code)
+
+export function bufferToHex(buffer) {
   return Array.from(new Uint8Array(buffer))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
 }
 
+// Convert hex string to buffer
+
+export function hexToBuffer(hexString) {
+  const byteArray = new Uint8Array(hexString.length / 2);
+  for (let i = 0; i < hexString.length; i += 2) {
+    byteArray[i / 2] = parseInt(hexString.substring(i, i + 2), 16);
+  }
+  return byteArray.buffer;
+}
+
 // Create a time-lock puzzle
+
 async function createPuzzle(seed, timeInSeconds) {
   let key = str2ab(seed);
   let digest;
@@ -135,7 +161,7 @@ async function decryptText(encrypted, iv, key) {
   return decoder.decode(decrypted);
 }
 
-async function verifySignature(data, signature, publicKeyPem) {
+async function verifySignatureRSA(data, signature, publicKeyPem) {
   // Convert the PEM-encoded public key to a CryptoKey object
   const publicKey = await window.crypto.subtle.importKey(
     'spki',
@@ -166,13 +192,59 @@ async function verifySignature(data, signature, publicKeyPem) {
   return isValid;
 }
 
-// Helper function to convert PEM to ArrayBuffer
+async function verifySignatureECDSA(hash, signature, publicKeyPem) {
+  const publicKey = await window.crypto.subtle.importKey(
+    'spki',
+    pemToBuffer(publicKeyPem),
+    {
+      name: 'ECDSA',
+      namedCurve: 'P-256', // Adjust depending on your key's curve
+    },
+    true,
+    ['verify']
+  );
+  // Convert data and signature to ArrayBuffer
+  const encoder = new TextEncoder();
+  const hashBuffer = encoder.encode(hash);
+  const signatureBuffer = Uint8Array.from(atob(signature), (c) =>
+    c.charCodeAt(0)
+  );
+
+  const isValid = await window.crypto.subtle.verify(
+    {
+      name: 'ECDSA',
+      namedCurve: 'P-256',
+    },
+    publicKey,
+    signatureBuffer,
+    hashBuffer
+  );
+
+  return isValid;
+}
+
+// Using elliptic library, since the web-crypto does not support secp256k1
+
+function verifySignatureECDSAelliptic(hash, signature, publicKey) {
+  console.log('hash', hash);
+  console.log('signature', signature);
+  console.log('publicKey', publicKey);
+  const ec = new EC('secp256k1');
+  const publicKeyBuffer = pemToBuffer(publicKey);
+  const key = ec.keyFromPublic(publicKeyBuffer);
+  const signatureBuffer = hexToBuffer(signature);
+  const hashBuffer = hexToBuffer(hash);
+
+  return key.verify(hashBuffer, signatureBuffer);
+}
+
+// Helper function to convert PEM to ArrayBuffer in the browser
 function pemToBuffer(pem) {
   const base64String = pem.replace(
     /-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|[\n\r]/g,
     ''
   );
-  const binaryString = atob(base64String);
+  const binaryString = window.atob(base64String); // Use window.atob for browsers
   const bytes = new Uint8Array(binaryString.length);
   for (let i = 0; i < binaryString.length; i++) {
     bytes[i] = binaryString.charCodeAt(i);
@@ -212,10 +284,22 @@ const ActionMenu = () => {
         iv,
         unsolved,
       });
+      // The code below is for checking the signature with ECDSA, the signature checking has problem on the client side
+      /* 
+      // Hash the encrypted transaction in hex string format for verifying the signature of the sequencer
+      const encTxHexStrHash = await hashKeccak256(encTxHexStr);
+      // Verify the sequencer's signature
+      const isValid = await verifySignatureECDSAelliptic(
+        encTxHexStrHash,
+        response.data.signature,
+        sequencerPublicKeyECDSA
+      );
+      console.log("Is sequencer's signature valid?", isValid); 
+      */
       // Hash the encrypted transaction in hex string format for verifying the signature of the sequencer
       const encTxHexStrHash = await hashSHA256(encTxHexStr);
       // Verify the sequencer's signature
-      const isValid = await verifySignature(
+      const isValid = await verifySignatureRSA(
         encTxHexStrHash,
         response.data.signature,
         sequencerPublicKeyRSA
@@ -234,7 +318,9 @@ const ActionMenu = () => {
   useEffect(() => {
     // Define an async function inside useEffect
     const asyncWrapper = async () => {
-      const newSeed = await hashSHA256(Math.floor(Math.random() * 1000000));
+      const newSeed = await hashKeccak256(
+        `${Math.floor(Math.random() * 1000000)}`
+      );
       const newPuzzle = await createPuzzle(newSeed, 1);
       setPuzzle(newPuzzle);
       setIsSendEncTxRunning(false);
