@@ -5,9 +5,9 @@ import dotenv from 'dotenv';
 import {
   hashSHA256,
   logL2,
-  signData,
+  signDataRSA,
   stringify,
-  verifySignature,
+  verifySignatureRSA,
 } from '../commons/utils.js';
 const app = express();
 const PORT = process.env.PORT || 4444;
@@ -39,7 +39,7 @@ setInterval(async () => {
     // Hash the stringified encrypted tx block for signature verification
     const encTxBlockHash = hashSHA256(stringify(encTxBlock));
     // Verify the signature
-    const isValid = verifySignature(
+    const isValid = verifySignatureRSA(
       encTxBlockHash,
       sequencerSignature,
       sequencerPublicKey
@@ -58,7 +58,7 @@ app.post('/l2Signature', (req, res) => {
   // Hash the encrypted tx hash list
   const encTxHashesHash = hashSHA256(encTxHashes);
   // Sign it with L2's private key
-  const signature = signData(encTxHashesHash, privateKey);
+  const signature = signDataRSA(encTxHashesHash, privateKey);
   // Send the signature back to the sequencer
   res.status(200).json({
     signature: signature,

@@ -6,7 +6,7 @@ export const stringify = (data) => JSON.stringify(data);
 
 // Make an RSA signature
 
-export function signData(data, privateKey) {
+export function signDataRSA(data, privateKey) {
   const sign = crypto.createSign('SHA256');
   sign.update(data);
   sign.end();
@@ -22,18 +22,26 @@ export function hashSHA256(str) {
 
 // RSA signature verification
 
-export function verifySignature(data, signature, publicKey) {
+export function verifySignatureRSA(data, signature, publicKey) {
   const verify = crypto.createVerify('SHA256');
   verify.update(data);
   verify.end();
   return verify.verify(publicKey, signature, 'base64');
 }
 
-// Creates a privateKey and publicKey. Destructure with {privateKey, publicKey} = generatePrivPub()
+// Creates an RSA privateKey and publicKey. Destructure with {privateKey, publicKey} = generatePrivPubRSA()
 
-export function generatePrivPub() {
+export function generatePrivPubRSA() {
   return crypto.generateKeyPairSync('rsa', {
     modulusLength: 2048, // Length of your key in bits
+  });
+}
+
+// Creates an ECDSA privateKey and publicKey. Destructure with {privateKey, publicKey} = generatePrivPubECDSA()
+
+export function generatePrivPubECDSA() {
+  return crypto.generateKeyPairSync('ec', {
+    namedCurve: 'secp256k1',
   });
 }
 
