@@ -5,9 +5,9 @@ import dotenv from 'dotenv';
 import {
   hashSHA256,
   logL2,
-  signData,
+  signDataRSA,
   stringify,
-  verifySignature,
+  verifySignatureRSA,
 } from '../commons/utils.js';
 const app = express();
 const PORT = process.env.PORT || 4444;
@@ -15,11 +15,11 @@ app.use(cors());
 app.use(express.json());
 dotenv.config();
 
-dotenv.config();
+dotenv.config({ path: '../.env' });
 
-const [privateKey, sequencerPublicKey] = [
-  process.env.PRIVATE_KEY,
-  process.env.SEQUENCER_PUBLIC_KEY,
+const [privateKeyRSA, sequencerPublicKeyRSA] = [
+  process.env.L2_PRIVATE_KEY_RSA,
+  process.env.SEQUENCER_PUBLIC_KEY_RSA,
 ];
 
 // Request the block of transactions every 5 seconds
@@ -39,10 +39,10 @@ setInterval(async () => {
     // Hash the stringified encrypted tx block for signature verification
     const encTxBlockHash = hashSHA256(stringify(encTxBlock));
     // Verify the signature
-    const isValid = verifySignature(
+    const isValid = verifySignatureRSA(
       encTxBlockHash,
       sequencerSignature,
-      sequencerPublicKey
+      sequencerPublicKeyRSA
     );
 
     logL2("is sequencer's signature valid?", isValid);
@@ -58,7 +58,7 @@ app.post('/l2Signature', (req, res) => {
   // Hash the encrypted tx hash list
   const encTxHashesHash = hashSHA256(encTxHashes);
   // Sign it with L2's private key
-  const signature = signData(encTxHashesHash, privateKey);
+  const signature = signDataRSA(encTxHashesHash, privateKeyRSA);
   // Send the signature back to the sequencer
   res.status(200).json({
     signature: signature,

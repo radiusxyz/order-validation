@@ -10,9 +10,9 @@ import {
   hashSHA256,
   logL1,
   logSeq,
-  signData,
+  signDataRSA,
   stringify,
-  verifySignature,
+  verifySignatureRSA,
 } from '../commons/utils.js';
 const PORT = process.env.PORT || 3333;
 
@@ -23,15 +23,17 @@ let encTxBlock = [];
 let encTxHashes = [];
 let txBlock = [];
 
-dotenv.config();
+dotenv.config({ path: '../.env' });
 
-const [privateKey, _, l2PublicKey, gylmanPK, apiKey] = [
-  process.env.PRIVATE_KEY,
-  process.env.PUBLIC_KEY,
-  process.env.L2_PUBLIC_KEY,
+const [privateKeyRSA, _, l2PublicKeyRSA, gylmanPK, apiKey] = [
+  process.env.SEQUENCER_PRIVATE_KEY_RSA,
+  process.env.SEQUENCER_PUBLIC_KEY_RSA,
+  process.env.L2_PUBLIC_KEY_RSA,
   process.env.GYLMAN_PRIVATE_KEY,
   process.env.INFURA_API_KEY,
 ];
+
+console.log(privateKeyRSA, l2PublicKeyRSA);
 
 const provider = new JsonRpcProvider(
   `https://rpc-mumbai.maticvigil.com/v1/${apiKey}`
@@ -194,7 +196,7 @@ async function consumeTx(req, res) {
   // Since the method is FCFS, and we order starting from 0, the order is length of the block - 1
   const order = encTxHashes.length - 1;
   // Sign the hash of the encrypted transaction as hex string
-  const signature = signData(encTxHexStrHash, privateKey);
+  const signature = signDataRSA(encTxHexStrHash, privateKeyRSA);
   // Respond to the user
   res.status(200).json({
     encTxHexStrHash,
@@ -231,7 +233,11 @@ app.get('/block', async (req, res) => {
     // Stringify the encrypted tx hash list and hash it for signature verification
     const encTxHashesHash = hashSHA256(stringify(encTxHashes));
     // Verify the signature
-    const isValid = verifySignature(encTxHashesHash, l2Signature, l2PublicKey);
+    const isValid = verifySignatureRSA(
+      encTxHashesHash,
+      l2Signature,
+      l2PublicKeyRSA
+    );
     logSeq("is L2's signature valid?", isValid);
     if (isValid) {
       // Ethers js requires that hashes must be prefixed with 0x, otherwise it throws an error
@@ -240,7 +246,7 @@ app.get('/block', async (req, res) => {
       submitToL1(encTxHashes);
       // Sign the hash of the encrypted transaction block
       const encTxBlockHash = hashSHA256(stringify(encTxBlock));
-      const signature = signData(encTxBlockHash, privateKey);
+      const signature = signDataRSA(encTxBlockHash, privateKeyRSA);
       responseData = {
         encTxBlock: [...encTxBlock],
         signature,
