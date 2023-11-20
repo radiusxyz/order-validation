@@ -19,13 +19,16 @@ export function signDataRSA(data, privateKey) {
 // Make an ECDSA signature
 
 export function signDataECDSA(hash, privateKey) {
-  return crypto.sign(null, hash, privateKey);
+  const hashBuffer = Buffer.from(hash, 'hex');
+  return crypto.sign(null, hashBuffer, privateKey).toString('hex');
 }
 
 // Verify an ECDSA signature
 
-export function verifySignatureECDSA(hash, publicKey, signature) {
-  return crypto.verify(null, hash, publicKey, signature);
+export function verifySignatureECDSA(hash, signature, publicKey) {
+  const hashBuffer = Buffer.from(hash, 'hex');
+  const signatureBuffer = Buffer.from(signature, 'hex');
+  return crypto.verify(null, hashBuffer, publicKey, signatureBuffer);
 }
 
 // Node.js SHA256 hashing using 'crypto' library
@@ -37,7 +40,7 @@ export function hashSHA256(str) {
 // Node.js Kecak-256 hashing using 'js-sha3' library
 
 export function hashKeccak256(str) {
-  return Buffer.from(keccak_256.arrayBuffer(str));
+  return Buffer.from(keccak_256.arrayBuffer(str)).toString('hex');
 }
 
 // RSA signature verification
