@@ -49,7 +49,7 @@ setInterval(async () => {
   } catch (error) {
     logL2("error requesting sequencer's signature:", error);
   }
-}, 5000);
+}, 20000);
 
 app.post('/l2Signature', (req, res) => {
   // Convert received object to string, since arguments for hashing functions should of type string

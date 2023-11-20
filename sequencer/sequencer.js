@@ -139,11 +139,8 @@ const contractABI = [
 
 const contract = new ethers.Contract(contractAddress, contractABI, wallet);
 
-async function submitToL1() {
-  const tx = await contract.addTxHashes([
-    '0x0cb03f9858f3428eaab177067831cf8ff94a80947ac78e6f9d65a8cf73ff145f',
-    '0x0cb03f9858f3428eaab177067831cf8ff94a80947ac78e6f9d65a8cf73ff145f',
-  ]);
+async function submitToL1(encTxHashes) {
+  const tx = await contract.addTxHashes(encTxHashes);
   await tx.wait();
   logL1('transaction completed:', tx.hash);
 }
@@ -236,8 +233,10 @@ app.get('/block', async (req, res) => {
     const isValid = verifySignature(encTxHashesHash, l2Signature, l2PublicKey);
     logSeq("is L2's signature valid?", isValid);
     if (isValid) {
+      // Ethers js requires that hashes must be prefixed with 0x, otherwise it throws an error
+      encTxHashes = encTxHashes.map((encTxHash) => '0x' + encTxHash);
       // If the signature is valid, store the hash list in L1
-      submitToL1();
+      submitToL1(encTxHashes);
       // Sign the hash of the encrypted transaction block
       const encTxBlockHash = hashSHA256(stringify(encTxBlock));
       const signature = signData(encTxBlockHash, privateKey);
