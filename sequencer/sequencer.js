@@ -8,9 +8,11 @@ import { ethers, JsonRpcProvider } from 'ethers';
 const app = express();
 import {
   hashKeccak256,
+  hashSHA256,
   logL1,
   logSeq,
   signDataECDSA,
+  signDataRSA,
   stringify,
   verifySignatureECDSA,
 } from '../commons/utils.js';
@@ -25,13 +27,15 @@ let txBlock = [];
 
 dotenv.config({ path: '../.env' });
 
-const [privateKeyECDSA, _, l2PublicKeyECDSA, gylmanPK, apiKey] = [
-  process.env.SEQUENCER_PRIVATE_KEY_ECDSA,
-  process.env.SEQUENCER_PUBLIC_KEY_ECDSA,
-  process.env.L2_PUBLIC_KEY_ECDSA,
-  process.env.GYLMAN_PRIVATE_KEY,
-  process.env.INFURA_API_KEY,
-];
+const [privateKeyRSA, privateKeyECDSA, _, l2PublicKeyECDSA, gylmanPK, apiKey] =
+  [
+    process.env.SEQUENCER_PRIVATE_KEY_RSA,
+    process.env.SEQUENCER_PRIVATE_KEY_ECDSA,
+    process.env.SEQUENCER_PUBLIC_KEY_ECDSA,
+    process.env.L2_PUBLIC_KEY_ECDSA,
+    process.env.GYLMAN_PRIVATE_KEY,
+    process.env.INFURA_API_KEY,
+  ];
 
 const provider = new JsonRpcProvider(
   `https://rpc-mumbai.maticvigil.com/v1/${apiKey}`
@@ -146,14 +150,6 @@ async function submitToL1(encTxHashes) {
   logL1('transaction completed:', tx.hash);
 }
 
-function hexToBuffer(hexString) {
-  const byteArray = new Uint8Array(hexString.length / 2);
-  for (let i = 0; i < hexString.length; i += 2) {
-    byteArray[i / 2] = parseInt(hexString.substring(i, i + 2), 16);
-  }
-  return byteArray.buffer;
-}
-
 function solvePuzzle(seed, iters) {
   let key = seed;
   for (let i = 0; i < iters; i++) {
@@ -187,6 +183,9 @@ async function consumeTx(req, res) {
   const { encTxHexStr, iv, unsolved } = req.body;
   logSeq('the received encTxHexStr:', encTxHexStr);
   logSeq('the received puzzle:', unsolved);
+  // The code below is for ECDSA signing of encTxHexStrHash, since it has a problem on the user side,
+  // we will do the offchain verification with RSA
+  /*   
   // Hash the encrypted transaction as hex string, since we are planning to store only encrypted txs in the L1
   const encTxHexStrHash = hashKeccak256(encTxHexStr);
   // Push the hash of the encrypted transaction as hex string to block
@@ -194,7 +193,16 @@ async function consumeTx(req, res) {
   // Since the method is FCFS, and we order starting from 0, the order is length of the block - 1
   const order = encTxHashes.length - 1;
   // Sign the hash of the encrypted transaction as hex string
-  const signature = signDataECDSA(encTxHexStrHash, privateKeyECDSA);
+  const signature = signDataECDSA(encTxHexStrHash, privateKeyECDSA); 
+  */
+  // Hash the encrypted transaction as hex string, since we are planning to store only encrypted txs in the L1
+  const encTxHexStrHash = hashSHA256(encTxHexStr);
+  // Push the hash of the encrypted transaction as hex string to block
+  encTxHashes.push(encTxHexStrHash);
+  // Since the method is FCFS, and we order starting from 0, the order is length of the block - 1
+  const order = encTxHashes.length - 1;
+  // Sign the hash of the encrypted transaction as hex string
+  const signature = signDataRSA(encTxHexStrHash, privateKeyRSA);
   // Respond to the user
   res.status(200).json({
     encTxHexStrHash,
