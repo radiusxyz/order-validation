@@ -25,15 +25,16 @@ let txBlock = [];
 
 dotenv.config();
 
-const [privateKey, _, l2PublicKey, gylmanPK] = [
+const [privateKey, _, l2PublicKey, gylmanPK, apiKey] = [
   process.env.PRIVATE_KEY,
   process.env.PUBLIC_KEY,
   process.env.L2_PUBLIC_KEY,
   process.env.GYLMAN_PRIVATE_KEY,
+  process.env.INFURA_API_KEY,
 ];
 
 const provider = new JsonRpcProvider(
-  'https://rpc-mumbai.maticvigil.com/v1/16494e45ab01479808b11686dc5d01b06a938e0f'
+  `https://rpc-mumbai.maticvigil.com/v1/${apiKey}`
 );
 
 const wallet = new ethers.Wallet(gylmanPK, provider);
