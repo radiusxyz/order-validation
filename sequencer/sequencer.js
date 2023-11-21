@@ -218,6 +218,8 @@ async function consumeTx(req, res) {
   logSeq('the decrypted transaction:', tx);
   // Push the encrypted transaction as hex string, iv as string, and decryption key as hex string into the block of encrypted txs
   encTxBlock.push({ encTxHexStr, ivHexStr, decryptionKey });
+  // Push the decrypted transactions into the transaction block
+  txBlock.push(tx);
 }
 
 app.post('/order', consumeTx);
@@ -252,14 +254,16 @@ app.get('/block', async (req, res) => {
       // If the signature is valid, store the hash list in L1
       // submitToL1(encTxHashes);
       // Sign the hash of the encrypted transaction block
-      const encTxBlockHash = hashKeccak256(stringify(encTxBlock));
-      const signature = signDataECDSA(encTxBlockHash, privateKeyECDSA);
+      const txBlockEncTxBlock = { encTxBlock, txBlock };
+      const txBlockEncTxBlockHash = hashKeccak256(stringify(txBlockEncTxBlock));
+      const signature = signDataECDSA(txBlockEncTxBlockHash, privateKeyECDSA);
       responseData = {
-        encTxBlock: [...encTxBlock],
+        txBlockEncTxBlock,
         signature,
       };
       encTxBlock = [];
       encTxHashes = [];
+      txBlock = [];
     }
   } catch (error) {
     console.error("error requesting L2's signature:", error);

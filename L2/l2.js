@@ -22,34 +22,34 @@ const [privateKeyECDSA, sequencerPublicKeyECDSA] = [
   process.env.SEQUENCER_PUBLIC_KEY_ECDSA,
 ];
 
-// // Request the block of transactions every 5 seconds
-// setInterval(async () => {
-//   try {
-//     logL2('requesting block from the sequencer ');
-//     /* Send a get request for getting the block, this will trigger
-//     the sequencer to make a POST request to /l2Signature for
-//     signing before it provides the transaction block */
-//     const response = await axios.get('http://localhost:3333/block');
-//     /* After the sequencer receives and verifies the signature
-//     it provides the encrpyted transaction block, which contains
-//     objects with the necessary information for decryption */
-//     const sequencerSignature = response.data.signature;
-//     const encTxBlock = response.data.encTxBlock;
-//     logL2('encTxBlock built by the sequencer: ', encTxBlock);
-//     // Hash the stringified encrypted tx block for signature verification
-//     const encTxBlockHash = hashKeccak256(stringify(encTxBlock));
-//     // Verify the signature
-//     const isValid = verifySignatureECDSA(
-//       encTxBlockHash,
-//       sequencerSignature,
-//       sequencerPublicKeyECDSA
-//     );
+// Request the block of transactions every 5 seconds
+setInterval(async () => {
+  try {
+    logL2('requesting block from the sequencer ');
+    /* Send a get request for getting the block, this will trigger
+    the sequencer to make a POST request to /l2Signature for
+    signing before it provides the transaction block */
+    const response = await axios.get('http://localhost:3333/block');
+    /* After the sequencer receives and verifies the signature
+    it provides the encrpyted transaction block, which contains
+    objects with the necessary information for decryption */
+    const sequencerSignature = response.data.signature;
+    const txBlockEncTxBlock = response.data.txBlockEncTxBlock;
+    logL2('txBlockEncTxBlock built by the sequencer: ', txBlockEncTxBlock);
+    // Hash the stringified encrypted tx block for signature verification
+    const txBlockEncTxBlockHash = hashKeccak256(stringify(txBlockEncTxBlock));
+    // Verify the signature
+    const isValid = verifySignatureECDSA(
+      txBlockEncTxBlockHash,
+      sequencerSignature,
+      sequencerPublicKeyECDSA
+    );
 
-//     logL2("is sequencer's signature valid?", isValid);
-//   } catch (error) {
-//     logL2("error requesting sequencer's signature:", error);
-//   }
-// }, 5000);
+    logL2("is sequencer's signature valid?", isValid);
+  } catch (error) {
+    logL2("error requesting sequencer's signature:", error);
+  }
+}, 5000);
 
 app.post('/l2Signature', (req, res) => {
   // Convert received object to string, since arguments for hashing functions should of type string
