@@ -9,6 +9,7 @@ const app = express();
 import {
   hashKeccak256,
   hashSHA256,
+  hexToBuffer,
   logL1,
   logSeq,
   signDataECDSA,
@@ -158,29 +159,29 @@ function solvePuzzle(seed, iters) {
   return key;
 }
 
-async function decryptText(encryptedWithTag, iv, keyBuffer) {
-  if (encryptedWithTag instanceof ArrayBuffer) {
-    encryptedWithTag = Buffer.from(encryptedWithTag);
-  }
-  // Assuming the tag is the last 16 bytes of the encrypted data
-  const tagLength = 16;
-  const encrypted = encryptedWithTag.slice(0, -tagLength);
-  const tag = encryptedWithTag.slice(-tagLength);
+async function decryptText(encryptedHex, ivHex, keyHex) {
+  const encrypted = Buffer.from(encryptedHex, 'hex');
+  const iv = Buffer.from(ivHex, 'hex');
+  const key = Buffer.from(keyHex, 'hex');
 
-  // Create a decipher instance
-  const decipher = crypto.createDecipheriv('aes-256-gcm', keyBuffer, iv);
-  decipher.setAuthTag(tag);
+  // Extract the auth tag (last 16 bytes)
+  const authTag = encrypted.slice(encrypted.length - 16);
+  const encryptedData = encrypted.slice(0, encrypted.length - 16);
 
-  // Decrypt the data
-  let decrypted = decipher.update(encrypted);
-  decrypted = Buffer.concat([decrypted, decipher.final()]);
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(authTag);
 
-  return decrypted.toString('utf-8'); // Assuming UTF-8 encoded data
+  let decrypted = Buffer.concat([
+    decipher.update(encryptedData),
+    decipher.final(),
+  ]);
+
+  return decrypted.toString('utf8');
 }
 
 async function consumeTx(req, res) {
   // Destructure the request body
-  const { encTxHexStr, iv, unsolved } = req.body;
+  const { encTxHexStr, ivHexStr, unsolved } = req.body;
   logSeq('the received encTxHexStr:', encTxHexStr);
   logSeq('the received puzzle:', unsolved);
   // The code below is for ECDSA signing of encTxHexStrHash, since it has a problem on the user side,
@@ -212,10 +213,11 @@ async function consumeTx(req, res) {
   // Solve the time-lock puzzle
   const decryptionKey = solvePuzzle(unsolved.seed, unsolved.iters);
   logSeq('the decryption key:', decryptionKey);
-  // Stringify iv
-  const ivStr = stringify(iv);
+  // Decrypt the encrypted transaction using the key obtained from time-lock puzzle
+  const tx = await decryptText(encTxHexStr, ivHexStr, decryptionKey);
+  logSeq('the decrypted transaction:', tx);
   // Push the encrypted transaction as hex string, iv as string, and decryption key as hex string into the block of encrypted txs
-  encTxBlock.push({ encTxHexStr, ivStr, decryptionKey });
+  encTxBlock.push({ encTxHexStr, ivHexStr, decryptionKey });
 }
 
 app.post('/order', consumeTx);
@@ -248,7 +250,7 @@ app.get('/block', async (req, res) => {
       // Ethers js requires that hashes must be prefixed with 0x, otherwise it throws an error
       encTxHashes = encTxHashes.map((encTxHash) => '0x' + encTxHash);
       // If the signature is valid, store the hash list in L1
-      submitToL1(encTxHashes);
+      // submitToL1(encTxHashes);
       // Sign the hash of the encrypted transaction block
       const encTxBlockHash = hashKeccak256(stringify(encTxBlock));
       const signature = signDataECDSA(encTxBlockHash, privateKeyECDSA);

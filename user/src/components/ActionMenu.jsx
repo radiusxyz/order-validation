@@ -273,6 +273,7 @@ const ActionMenu = () => {
     // encTx is in buffer format, which cannot be sent easily via POST, so, convert it to hex
     const encTxHexStr = bufferToHex(encTx);
     // this piece of code is just for showing that encryption decryption works fine on the browser
+    const ivHexStr = bufferToHex(iv);
     const decryptedText = await decryptText(encTx, iv, key);
 
     try {
@@ -281,7 +282,7 @@ const ActionMenu = () => {
       // Send a post request with encrypted transaction in hex string format, iv, and time-lock puzzle
       const response = await axios.post('http://localhost:3333/order', {
         encTxHexStr,
-        iv,
+        ivHexStr,
         unsolved,
       });
       // The code below is for checking the signature with ECDSA, the signature checking has problem on the client side
