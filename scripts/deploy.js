@@ -7,7 +7,7 @@
 const hre = require("hardhat");
 
 async function main() {
-  const myContract = await hre.ethers.deployContract("CompanyRegistry");
+  const myContract = await hre.ethers.deployContract("MerkleProofVerifier");
   await myContract.waitForDeployment();
   console.log("MyContract deployed to:", myContract.target);
 }
