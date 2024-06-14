@@ -1,7 +1,7 @@
-use async_std::task;
 use ethers::prelude::*;
 use ethers::utils::hex;
 use std::sync::Arc;
+use tokio::runtime::Runtime;
 
 abigen!(
     MerkleProofVerifier,
@@ -146,14 +146,13 @@ async fn async_main() -> Result<(), Box<dyn std::error::Error>> {
 
     let leaf = to_bytes32(transactions[index]);
     let root = to_bytes32(merkle_root);
-    let proof_elements = proof.iter().map(|&h| to_bytes32(h)).collect();
+    let proof_elements = proof.iter().map(|&h| to_bytes32(h)).collect::<Vec<_>>();
 
     // Verify the proof
     let is_valid = contract
         .verify(proof_elements, root, leaf, index.into())
         .call()
         .await?;
-    println!("hello");
     println!("Is the transaction order valid? {}", is_valid);
 
     Ok(())
